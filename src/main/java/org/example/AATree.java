@@ -1,30 +1,36 @@
 package org.example;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class AATree {
     private static class Node {
-        int value, level;
+        Student student;
+        int level;
         Node left, right;
 
-        Node(int value) {
-            this.value = value;
+        Node(Student student) {
+            this.student = student;
             this.level = 1;
-            this.left = this.right = null;
         }
     }
 
-    private Node root = null;
+    private Node root;
 
-    public void insert(int value) {
-        root = insert(root, value);
+    // Вставка студента
+    public void insert(Student student) {
+        root = insert(root, student);
     }
 
-    private Node insert(Node node, int value) {
-        if (node == null) return new Node(value);
+    private Node insert(Node node, Student student) {
+        if (node == null) return new Node(student);
 
-        if (value < node.value) {
-            node.left = insert(node.left, value);
-        } else if (value > node.value) {
-            node.right = insert(node.right, value);
+        if (student.getId() < node.student.getId()) {
+            node.left = insert(node.left, student);
+        } else if (student.getId() > node.student.getId()) {
+            node.right = insert(node.right, student);
+        } else {
+            node.student = student; // Обновить данные, если ID совпадает
         }
 
         node = skew(node);
@@ -32,50 +38,66 @@ public class AATree {
         return node;
     }
 
-    public void delete(int value) {
-        root = delete(root, value);
+    // Удаление по ID
+    public void delete(int id) {
+        root = delete(root, id);
     }
 
-    private Node delete(Node node, int value) {
+    private Node delete(Node node, int id) {
         if (node == null) return null;
 
-        if (value < node.value) {
-            node.left = delete(node.left, value);
-        } else if (value > node.value) {
-            node.right = delete(node.right, value);
+        if (id < node.student.getId()) {
+            node.left = delete(node.left, id);
+        } else if (id > node.student.getId()) {
+            node.right = delete(node.right, id);
         } else {
             if (node.left == null && node.right == null) return null;
-            else if (node.left == null) node = node.right;
-            else if (node.right == null) node = node.left;
-            else {
-                Node successor = node.right;
-                while (successor.left != null) successor = successor.left;
-                node.value = successor.value;
-                node.right = delete(node.right, successor.value);
-            }
+            if (node.left == null) return node.right;
+            if (node.right == null) return node.left;
+            Node successor = findMin(node.right);
+            node.student = successor.student;
+            node.right = delete(node.right, successor.student.getId());
         }
 
         node = decreaseLevel(node);
         node = skew(node);
-        if (node.right != null) {
-            node.right = skew(node.right);
-            if (node.right.right != null) node.right.right = skew(node.right.right);
-        }
+        if (node.right != null) node.right = skew(node.right);
         node = split(node);
         if (node.right != null) node.right = split(node.right);
         return node;
     }
 
-    public boolean contains(int value) {
-        Node current = root;
-        while (current != null) {
-            if (value < current.value) current = current.left;
-            else if (value > current.value) current = current.right;
-            else return true;
-        }
-        return false;
+    private Node findMin(Node node) {
+        while (node.left != null) node = node.left;
+        return node;
     }
 
+    // Поиск по ID
+    public Student search(int id) {
+        Node node = root;
+        while (node != null) {
+            if (id < node.student.getId()) node = node.left;
+            else if (id > node.student.getId()) node = node.right;
+            else return node.student;
+        }
+        return null;
+    }
+
+    // Поиск студентов с GPA > minGpa (конкретная задача)
+    public List<Student> findStudentsWithGpaGreaterThan(double minGpa) {
+        List<Student> result = new ArrayList<>();
+        inOrderTraversal(root, minGpa, result);
+        return result;
+    }
+
+    private void inOrderTraversal(Node node, double minGpa, List<Student> result) {
+        if (node == null) return;
+        inOrderTraversal(node.left, minGpa, result);
+        if (node.student.getGpa() > minGpa) result.add(node.student);
+        inOrderTraversal(node.right, minGpa, result);
+    }
+
+    // Балансировка
     private Node skew(Node node) {
         if (node == null || node.left == null) return node;
         if (node.left.level == node.level) {
@@ -100,15 +122,15 @@ public class AATree {
     }
 
     private Node decreaseLevel(Node node) {
-        int shouldBe = Math.min(getLevel(node.left), getLevel(node.right)) + 1;
-        if (shouldBe < node.level) {
-            node.level = shouldBe;
-            if (node.right != null && node.right.level > shouldBe) node.right.level = shouldBe;
+        int leftLevel = node.left != null ? node.left.level : 0;
+        int rightLevel = node.right != null ? node.right.level : 0;
+        int correctLevel = Math.min(leftLevel, rightLevel) + 1;
+        if (correctLevel < node.level) {
+            node.level = correctLevel;
+            if (node.right != null && node.right.level > correctLevel) {
+                node.right.level = correctLevel;
+            }
         }
         return node;
-    }
-
-    private int getLevel(Node node) {
-        return node == null ? 0 : node.level;
     }
 }

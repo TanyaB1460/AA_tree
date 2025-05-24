@@ -1,55 +1,65 @@
 package org.example;
 
-import java.util.*;
-import java.io.*;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
 
 public class Benchmark {
     public static void main(String[] args) {
-        Random rand = new Random();
+        final int MIN_SIZE = 100;
+        final int MAX_SIZE = 10000;
+        final int STEP = 200;
+        final int SEARCH_OPERATIONS = 1000;
+        final int RUNS_PER_SIZE = 5;
 
-        int minSize = 100;
-        int maxSize = 10000;
-        int step = (maxSize - minSize) / 49;
+        try (PrintWriter writer = new PrintWriter(new FileWriter("benchmark_results.csv"))) {
+            writer.println("Size;Insert(ns);Search(ns);Delete(ns)");
 
-        try (PrintWriter writer = new PrintWriter(new FileWriter("results.csv"))) {
-            writer.println("Size;Insert(ms);Search(ms);Delete(ms)");
+            for (int size = MIN_SIZE; size <= MAX_SIZE; size += STEP) {
+                System.out.println("Testing size: " + size);
 
-            for (int s = 0; s < 50; s++) {
-                int size = minSize + step * s;
-                System.out.println("\n=== Набор из " + size + " элементов ===");
-                List<Integer> data = new ArrayList<>();
-                for (int i = 0; i < size; i++) data.add(rand.nextInt(size * 10));
+                double totalInsert = 0;
+                double totalSearch = 0;
+                double totalDelete = 0;
 
-                AATree tree = new AATree();
+                for (int run = 0; run < RUNS_PER_SIZE; run++) {
+                    AATree tree = new AATree();
+                    Random rand = new Random();
+                    List<Student> students = new ArrayList<>();
 
-                long insertStart = System.nanoTime();
-                for (int value : data) tree.insert(value);
-                long insertEnd = System.nanoTime();
-                double insertTime = (insertEnd - insertStart) / 1_000_000.0;
-                System.out.println("Вставка: " + insertTime + " мс");
+                    for (int i = 0; i < size; i++) {
+                        students.add(new Student(rand.nextInt(size * 10), "Student", rand.nextDouble() * 4.0));
+                    }
 
-                long searchStart = System.nanoTime();
-                for (int i = 0; i < 100; i++) {
-                    int val = data.get(rand.nextInt(data.size()));
-                    tree.contains(val);
+                    long start = System.nanoTime();
+                    for (Student s : students) tree.insert(s);
+                    totalInsert += (System.nanoTime() - start);
+
+                    start = System.nanoTime();
+                    for (int i = 0; i < SEARCH_OPERATIONS; i++) {
+                        tree.search(students.get(rand.nextInt(students.size())).getId());
+                    }
+                    totalSearch += (System.nanoTime() - start);
+
+                    int deleteCount = size / 4;
+                    start = System.nanoTime();
+                    for (int i = 0; i < deleteCount; i++) {
+                        tree.delete(students.get(i).getId());
+                    }
+                    totalDelete += (System.nanoTime() - start);
                 }
-                long searchEnd = System.nanoTime();
-                double searchTime = (searchEnd - searchStart) / 1_000_000.0;
-                System.out.println("Поиск: " + searchTime + " мс");
 
-                Collections.shuffle(data);
-                long deleteStart = System.nanoTime();
-                for (int i = 0; i < size / 4; i++) tree.delete(data.get(i));
-                long deleteEnd = System.nanoTime();
-                double deleteTime = (deleteEnd - deleteStart) / 1_000_000.0;
-                System.out.println("Удаление: " + deleteTime + " мс");
+                double avgInsert = totalInsert / (RUNS_PER_SIZE * 1_000_000.0);
+                double avgSearch = totalSearch / (RUNS_PER_SIZE * SEARCH_OPERATIONS * 1_000_000.0);
+                double avgDelete = totalDelete / (RUNS_PER_SIZE * 1_000_000.0);
 
-                writer.printf("%d;%.3f;%.3f;%.3f\n", size, insertTime, searchTime, deleteTime);
+                writer.printf("%d;%.6f;%.6f;%.6f\n", size, avgInsert, avgSearch, avgDelete);
             }
-
-            System.out.println("\nРезультаты сохранены в файл results.csv");
         } catch (IOException e) {
-            System.err.println("Ошибка при записи в файл: " + e.getMessage());
+            System.err.println("Error: " + e.getMessage());
         }
     }
 }
